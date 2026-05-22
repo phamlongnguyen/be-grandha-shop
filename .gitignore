@@ -1,0 +1,17 @@
+# Supabase local state — không bao giờ commit
+supabase/.branches/
+supabase/.temp/
+supabase/snippets/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

@@ -1,0 +1,52 @@
+name: Deploy Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-supabase.yml'
+  workflow_dispatch:   # cho phép trigger thủ công từ Actions tab
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false   # KHÔNG hủy job đang chạy — migration không nên bị cắt giữa chừng
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_ID"
+
+      - name: Push migrations
+        run: supabase db push
+
+      - name: Deploy edge functions
+        run: |
+          shopt -s nullglob
+          deployed=0
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            # Bỏ qua thư mục _shared
+            if [[ "$name" == _* ]]; then continue; fi
+            echo "Deploying function: $name"
+            supabase functions deploy "$name" --project-ref "$PROJECT_ID"
+            deployed=$((deployed+1))
+          done
+          if [ "$deployed" -eq 0 ]; then
+            echo "Không có edge function nào để deploy — skip."
+          fi
